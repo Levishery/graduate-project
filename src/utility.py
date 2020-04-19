@@ -177,8 +177,11 @@ def calc_psnr(sr, hr, scale, rgb_range, dataset=None):
 
     valid = diff[..., shave:-shave, shave:-shave]
     mse = valid.pow(2).mean()
-
-    return -10 * math.log10(mse)
+    if(mse==0):
+        print('mse=0!!')
+        return 40
+    else:
+        return -10 * math.log10(mse)
 
 def make_optimizer(args, target):
     '''

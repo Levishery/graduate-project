@@ -77,7 +77,8 @@ class RCAN(nn.Module):
         reduction = args.reduction 
         scale = args.scale[0]
         act = nn.ReLU(True)
-        
+        self.args = args
+
         # RGB mean for DIV2K
         self.sub_mean = common.MeanShift(args.rgb_range)
         
@@ -104,14 +105,16 @@ class RCAN(nn.Module):
         self.tail = nn.Sequential(*modules_tail)
 
     def forward(self, x):
-        x = self.sub_mean(x)
+        if self.args.n_colors != 1:
+            x = self.sub_mean(x)
         x = self.head(x)
 
         res = self.body(x)
         res += x
 
         x = self.tail(res)
-        x = self.add_mean(x)
+        if self.args.n_colors != 1:
+            x = self.add_mean(x)
 
         return x 
 

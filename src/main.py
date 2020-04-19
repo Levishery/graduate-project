@@ -17,6 +17,7 @@ def main():
         model = model.Model(args, checkpoint)
         t = VideoTester(args, model, checkpoint)
         t.test()
+
     else:
         if checkpoint.ok:
             loader = data.Data(args)

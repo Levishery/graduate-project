@@ -19,6 +19,8 @@ parser.add_argument('--seed', type=int, default=1,
                     help='random seed')
 
 # Data specifications
+parser.add_argument('--datatype', type=str, default='',
+                    help='add noise or light')
 parser.add_argument('--dir_data', type=str, default='../../../dataset',
                     help='dataset directory')
 parser.add_argument('--dir_demo', type=str, default='../test',
@@ -97,6 +99,8 @@ parser.add_argument('--self_ensemble', action='store_true',
                     help='use self-ensemble method for test')
 parser.add_argument('--test_only', action='store_true',
                     help='set this option to test the model')
+parser.add_argument('--whole_img', action='store_true',
+                    help='process whole test image')
 parser.add_argument('--gan_k', type=int, default=1,
                     help='k value for adversarial loss')
 

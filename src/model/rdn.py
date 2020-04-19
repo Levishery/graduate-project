@@ -30,7 +30,6 @@ class RDB(nn.Module):
         G0 = growRate0
         G  = growRate
         C  = nConvLayers
-        
         convs = []
         for c in range(C):
             convs.append(RDB_Conv(G0 + c*G, G))

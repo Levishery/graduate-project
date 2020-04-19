@@ -42,7 +42,6 @@ def set_template(args):
         args.n_resgroups = 10
         args.n_resblocks = 20
         args.n_feats = 64
-        args.chop = True
 
     if args.template.find('VDSR') >= 0:
         args.model = 'VDSR'

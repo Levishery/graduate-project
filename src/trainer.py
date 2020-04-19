@@ -1,12 +1,14 @@
 import os
 import math
 from decimal import Decimal
-
+from data import common
+from torchvision import transforms
 import utility
 
 import torch
 import torch.nn.utils as utils
 from tqdm import tqdm
+import PIL
 
 class Trainer():
     def __init__(self, args, loader, my_model, my_loss, ckp):
@@ -74,7 +76,7 @@ class Trainer():
     def test(self):
         torch.set_grad_enabled(False)
 
-        epoch = self.optimizer.get_last_epoch()
+        epoch = self.optimizer.get_last_epoch() + 1
         self.ckp.write_log('\nEvaluation:')
         self.ckp.add_log(
             torch.zeros(1, len(self.loader_test), len(self.scale))
@@ -86,20 +88,58 @@ class Trainer():
         for idx_data, d in enumerate(self.loader_test):
             for idx_scale, scale in enumerate(self.scale):
                 d.dataset.set_scale(idx_scale)
-                for lr, hr, filename in tqdm(d, ncols=80):
-                    lr, hr = self.prepare(lr, hr)
-                    sr = self.model(lr, idx_scale)
-                    sr = utility.quantize(sr, self.args.rgb_range)
+                if self.args.data_test[0] != 'DemoSplit':
+                    for lr, hr, filename in tqdm(d, ncols=80):
+                        lr, hr = self.prepare(lr, hr)
+                        sr = self.model(lr, idx_scale)
+                        sr = utility.quantize(sr, self.args.rgb_range)
 
-                    save_list = [sr]
-                    self.ckp.log[-1, idx_data, idx_scale] += utility.calc_psnr(
-                        sr, hr, scale, self.args.rgb_range, dataset=d
-                    )
-                    if self.args.save_gt:
-                        save_list.extend([lr, hr])
+                        save_list = [sr]
+                        self.ckp.log[-1, idx_data, idx_scale] += utility.calc_psnr(
+                            sr, hr, scale, self.args.rgb_range, dataset=d
+                        )
+                        if self.args.save_gt:
+                            save_list.extend([lr, hr])
 
-                    if self.args.save_results:
-                        self.ckp.save_results(d, filename[0], save_list, scale)
+                        if self.args.save_results:
+                            self.ckp.save_results(d, filename[0], save_list, scale)
+
+                else:
+                    for lr, patch_num, filename in tqdm(d, ncols=80):
+                        step = int(patch_num[0]*patch_num[1])/self.args.batch_size
+                        step = math.ceil(step)
+                        lr = torch.squeeze(lr, 0)
+                        for i in range(step):
+                            index = i*self.args.batch_size
+                            if(i+self.args.batch_size<patch_num[0]*patch_num[1]):
+                                lr_batch, hr = self.prepare(lr[index:index+self.args.batch_size, :, :, :], torch.zeros((1)))
+                            else:
+                                lr_batch, hr = self.prepare(lr[index:patch_num[0]*patch_num[1], :, :, :], torch.zeros((1)))
+                            sr = self.model(lr_batch, idx_scale)
+                            if(i == 0):
+                                whole_sr = sr
+                            else:
+                                whole_sr = torch.cat((whole_sr, sr), 0)
+
+                        target_img = torch.zeros((patch_num[0]*self.args.patch_size, patch_num[1]*self.args.patch_size, self.args.n_colors))
+                        for i in range(patch_num[0]):
+                            for j in range(patch_num[1]):
+                                a = whole_sr[i*patch_num[1]+j, :, :, :]
+                                target_img[i * self.args.patch_size:(i + 1) * self.args.patch_size, j * self.args.patch_size:(j + 1) * self.args.patch_size, :] \
+                                    = torch.squeeze(a.permute(2, 3, 1, 0), 3)
+
+                        target_img = target_img.permute(2, 0, 1)
+                        target_img = utility.quantize(target_img, self.args.rgb_range)
+                        target_img = target_img.cpu().clone()
+                        unloader = transforms.ToPILImage()
+                        target_img = PIL.ImageOps.invert(unloader(target_img))
+                        target_img.save(os.path.join(self.args.dir_demo, 'result_'+filename[0]+'.png'))
+
+                        save_list = []
+
+                        if self.args.save_results:
+                            self.ckp.save_results(d, filename[0], save_list, scale)
+
 
                 self.ckp.log[-1, idx_data, idx_scale] /= len(d)
                 best = self.ckp.log.max(0)
